@@ -2,14 +2,15 @@ import logging
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 
+
 from config import TOKEN
-from fr24.get_data import get_flights
 
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher(bot, storage=MemoryStorage())
 logging.basicConfig(format=u'%(filename)+13s [ LINE:%(lineno)-4s]'
                            u' %(levelname)-8s [%(asctime)s] %(message)s',
                     level=logging.DEBUG,
@@ -17,28 +18,12 @@ logging.basicConfig(format=u'%(filename)+13s [ LINE:%(lineno)-4s]'
                     filemode='w')
 dp.middleware.setup(LoggingMiddleware())
 
-
-@dp.message_handler(commands=['start'])
-async def process_start_command(message: types.Message):
-    await message.reply("Всем привет, это бот - сканер FR24\n"
-                        "Чтобы начать работу, введи команду /help", reply=False)
+from tg.handlers import *
 
 
-@dp.message_handler(commands=['help'])
-async def process_help_command(message: types.Message):
-    await message.reply("Пока что тут не густо. Введите ICAO-код авиакомпании!")
-
-
-@dp.message_handler()
-async def echo_message(msg: types.Message):
-    for flight in get_flights(msg.text):
-        print(flight)
-        photo = flight["photo"]
-        caption = flight["info"]
-        if photo:
-            await bot.send_photo(msg.from_user.id, photo=photo, caption=caption)
-        else:
-            await bot.send_message(msg.from_user.id, caption)
+async def shutdown(dispatcher: Dispatcher):
+    await dispatcher.storage.close()
+    await dispatcher.storage.wait_closed()
 
 
 if __name__ == '__main__':

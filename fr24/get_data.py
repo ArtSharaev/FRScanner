@@ -6,10 +6,9 @@ fr_api = FlightRadar24API()
 
 def get_flight_details(details):
     # airline_name = details["airline"]["name"]
-
     try:
         photo_url = details["aircraft"]["images"]["large"][0]["link"]
-    except TypeError:
+    except TypeError and KeyError:
         photo_url = None
 
     try:
@@ -44,10 +43,30 @@ def get_flight_details(details):
     return {"photo": photo_url, "info": info}
 
 
-def get_flights(airline_icao):
-    airline_flights = fr_api.get_flights(airline=airline_icao)
+def check_airport(airport):
+    for item in fr_api.get_airports():
+        if item["iata"] == airport or item["icao"] == airport:
+            return True
+    return False
+
+
+def get_flights(airline_icao, airport):
+    if airport:
+        airport = airport.upper()
+    airline_flights = fr_api.get_flights(airline=airline_icao.upper())
+    print(airline_flights)
     flights_list = []
     for flight in airline_flights:
         details = fr_api.get_flight_details(flight.id)
-        flights_list.append(get_flight_details(details))
+        try:
+            if airport and check_airport(airport):
+                if (details["airport"]["destination"]["code"]["iata"]
+                        == airport
+                        or details["airport"]["destination"]["code"]["icao"]
+                        == airport):
+                    flights_list.append(get_flight_details(details))
+            else:
+                flights_list.append(get_flight_details(details))
+        except Exception:
+            pass
     return flights_list
